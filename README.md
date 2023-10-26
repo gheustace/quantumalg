@@ -1,1 +1,1 @@
-# quantumalgo
+# Quantum Algorithms
