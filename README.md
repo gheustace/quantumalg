@@ -1,1 +1,1 @@
-# quantumalg
+# quantumalgo
