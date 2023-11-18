@@ -6,6 +6,14 @@ import numpy as np
 from sklearn.preprocessing import normalize
 from qiskit import Aer
 
+def global_vars():
+    global m
+    m = 6
+    global theta
+    theta = rand_key(m)
+    global r
+    r = rand_key(m)
+
 # Random Key Generator
 def rand_key(p):
     key1 = ""
@@ -129,7 +137,7 @@ def key_generation(m, hash_family_size):
 
 def encryption(msg_state, key_state, hpa, hec, s, k):
     # msg_vector = msg_state.to_statevector()
-    hpa, hec, key_state, s, k, r, theta = key_generation(2, 10)
+    hpa, hec, key_state, s, k, r, theta = key_generation(m, 10)
     key_vector = key_state.to_statevector()
     
     # r_computational = get_r_computational(r, theta)
