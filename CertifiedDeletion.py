@@ -6,14 +6,6 @@ import numpy as np
 from sklearn.preprocessing import normalize
 from qiskit import Aer
 
-def global_vars():
-    global m
-    m = 6
-    global theta
-    theta = rand_key(m)
-    global r
-    r = rand_key(m)
-
 # Random Key Generator
 def rand_key(p):
     key1 = ""
@@ -95,6 +87,14 @@ def get_r_computational(r_bitstring, theta_bitstring):
             r_computational += r_bitstring[i]
     return r_computational
 
+def global_vars():
+    global m
+    m = 2
+    global theta
+    theta = rand_key(m)
+    global r
+    r = rand_key(m)
+
 def key_generation(m, hash_family_size):
     statevec_str = ""
     theta = rand_key(m)
@@ -168,68 +168,77 @@ def encryption(msg_state, key_state, hpa, hec, s, k):
     print(weisner_str + msgenc_str)
     statevector = Statevector.from_label(weisner_str + msgenc_str)
     rho = DensityMatrix(statevector)
-    return rho
+    return key_state, rho, hec, hpa
 
-    def deletion(rho):
-        num_qubits = rho.num_qubits
-        circuit = QuantumCircuit(num_qubits, num_qubits)
-        
-        for qubit in range(num_qubits):
-            circuit.h(qubit)
-        
-        circuit.measure(range(num_qubits), range(num_qubits))
-
-        simulator = Aer.get_backend('qasm_simulator')
-        job = execute(circuit, simulator, shots=1)
-        result = job.result()
-        measurement_result = result.get_counts(circuit)
-
-        # measured_state = list(measurement_result.keys())[0]
-        # certificate_state_string = '|{}⟩⟨{}|'.format(measured_state, measured_state)
-        certificate_state_density_matrix = DensityMatrix.from_label(measured_state)
-        return certificate_state_density_matrix
+def deletion(rho):
+    num_qubits = rho.num_qubits
+    circuit = QuantumCircuit(num_qubits, num_qubits)
     
-    def decryption(keystate, ciphertext, Hec, Hpa):
-        # Apply Hadamard to Weisner part of ciphertext
-        keyvector = keystate.to_statevector()
-        statevec_str = list(keyvector.probabilities_dict().keys())[0]
-        weisner = statevec_str[0:m]
-        for i in range(len(weisner)):
-            if weisner[i] == '1':
-                weisner[i] = '-'
-            if weisner[i] == '0':
-                weisner[i] = '+'
-        weisner_vec = Statevector.from_label(weisner)
-        weisner_matrix = DensityMatrix(weisner_vec)
-        r = weisner_matrix.measure()
-        #3
-        ciphertextvector = ciphertext.to_statevector()
-        ciphertext_str = list(ciphertextvector.probabilities_dict().keys())[0]
-        q = ciphertext_str[len(ciphertext_str) - m:]
-        e = statevec_str[len(statevec_str) - m:]
+    for qubit in range(num_qubits):
+        circuit.h(qubit)
+    
+    circuit.measure(range(num_qubits), range(num_qubits))
 
-        r_prime = corr(get_r_computational(r), q ^ e)
-        #4
-        p_prime = Hec ^ statevec_str[len(statevec_str) - 2*m:len(statevec_str)- m]
-        #5
-        if (p_prime == ciphertext_str[len(ciphertext_str) - 2*m:len(ciphertext_str)- m]):
-            gamma = outer(0, 0)
-        else:
-            gamma = outer(1, 1)
-        #6 
-        x_prime = Hpa 
-        sigma = DensityMatrix(outer(ciphertext_str[m:2*m] ^ x_prime ^ statevec_str[hamming(theta) + m: hamming(theta) + 2*m]))
-        return sigma.outer(gamma)
+    simulator = Aer.get_backend('qasm_simulator')
+    job = execute(circuit, simulator, shots=1)
+    result = job.result()
+    measurement_result = result.get_counts(circuit)
 
-    def verification(keystate, certificate_string_state, delta):
-        #1
-        y_prime = get_r_hadamard(certificate_string_state)
-        #2
-        q = key_state[:hamming(theta)]
-        #3
-        if(hamming(q ^ y_prime < delta * hamming(theta))):
-            return 1    
-        else:
-            return 0
+    # measured_state = list(measurement_result.keys())[0]
+    # certificate_state_string = '|{}⟩⟨{}|'.format(measured_state, measured_state)
+    certificate_state_density_matrix = DensityMatrix.from_label(measured_state)
+    return certificate_state_density_matrix
+
+def decryption(keystate, ciphertext, Hec, Hpa):
+    # Apply Hadamard to Weisner part of ciphertext
+    keyvector = keystate.to_statevector()
+    statevec_str = list(keyvector.probabilities_dict().keys())[0]
+    weisner = statevec_str[0:m]
+    # for i in range(len(weisner)):
+    #     if weisner[i] == '1':
+    #         weisner[i] = '-'
+    #     if weisner[i] == '0':
+    #         weisner[i] = '+'
+    weisner.replace('1', '-')
+    weisner.replace('0', '+')
+    weisner_vec = Statevector.from_label(weisner)
+    weisner_matrix = DensityMatrix(weisner_vec)
+    r = weisner_matrix.measure()
+    #3
+    ciphertextvector = ciphertext.to_statevector()
+    ciphertext_str = list(ciphertextvector.probabilities_dict().keys())[0]
+    q = ciphertext_str[len(ciphertext_str) - m:]
+    e = statevec_str[len(statevec_str) - m:]
+    print(r)
+    print(theta)
+
+    r_prime = corr(get_r_computational(f"{r[0]}", f"{theta}"), f"{(BitArray(bin=q).int ^ BitArray(bin=e).int)}")
+    #4
+    p_prime = Hec(1, BitArray(bin=r_prime).int) ^ BitArray(bin=statevec_str[len(statevec_str) - 2*m:len(statevec_str)- m]).int
+    #5
+    print(ciphertext_str[len(ciphertext_str) - 2*m:len(ciphertext_str)- m])
+    print(p_prime)
+    if (p_prime == ciphertext_str[len(ciphertext_str) - 2*m:len(ciphertext_str)- m]):
+        gamma = '0'
+    else:
+        gamma = '1'
+    return gamma
+    #6 
+    x_prime = Hpa
+    sigma = DensityMatrix(outer(ciphertext_str[m:2*m] ^ x_prime ^ statevec_str[hamming(theta) + m: hamming(theta) + 2*m]))
+    return sigma.outer(gamma)
+
+def verification(keystate, certificate_string_state, delta):
+    #1
+    y_prime = get_r_hadamard(certificate_string_state)
+    #2
+    q = key_state[:hamming(theta)]
+    #3
+    if(hamming(q ^ y_prime < delta * hamming(theta))):
+        return 1    
+    else:
+        return 0
         
-print(encryption(1, 1, 1, 1, 1, 1))
+global_vars()
+key_state, rho, hec, hpa = encryption(1, 1, 1, 1, 1, 1)
+print(decryption(key_state, rho, hec, hpa))
